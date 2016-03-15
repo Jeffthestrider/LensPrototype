@@ -8,8 +8,8 @@ public class CameraScript : MonoBehaviour {
     public Text cameraDebug;
     public float cameraAdjustSpeed;
 
-    private float horizontalBounds = .3f;
-    private float verticalBounds = .4f;
+    float horizontalBounds = .3f;
+    float verticalBounds = .4f;
     Transform targetTransform;
     Camera camera;
 
@@ -27,64 +27,50 @@ public class CameraScript : MonoBehaviour {
             "\nY: " + targetPositionRelativeToScreen.y * 100 + "%";
 
 
+        // Camera moves to follow player when approaching edge of screen.
         ShiftPosition(targetPositionRelativeToScreen);
+        // Camera focuses of player.
         //FollowPlayer();
     }
 
     void ShiftPosition(Vector3 targetPositionRelativeToScreen)
     {
+        // Amount to adjust camera's position
         float? xAdjust = null;
         float? yAdjust = null;
+        
+        // Boosts camera speed when target gets closer to or past edge of screen.  Careful adjustment here or you'll get jitters.
+        var cameraCatchUpVelocity = 15f;
 
-        var catchUpSpeed = 20;
-        var idealX = 0f;
-        var idealY = 0f;
-
+        // Figure out how much, if at all, the X position of the camera needs to change.
         if (targetPositionRelativeToScreen.x < horizontalBounds)
         {
-            var speedIncrease = catchUpSpeed * (horizontalBounds + .1f - targetPositionRelativeToScreen.x);
+            var speedIncrease = cameraCatchUpVelocity * (horizontalBounds + .1f - targetPositionRelativeToScreen.x);
             xAdjust = transform.position.x - (cameraAdjustSpeed * Time.deltaTime * speedIncrease);
-
-            cameraDebug.text += "\nxAdj " + xAdjust + "\nidealX: " + GetIdealPositionForX(false);
-
-            if (xAdjust < GetIdealPositionForX(false))
-            {
-                xAdjust = GetIdealPositionForX(false);
-            }
-        } else if (targetPositionRelativeToScreen.x > 1 - horizontalBounds)
+        }
+        else if (targetPositionRelativeToScreen.x > 1 - horizontalBounds)
         {
-            var speedIncrease = catchUpSpeed * (targetPositionRelativeToScreen.x - (1 - horizontalBounds));
+            var speedIncrease = cameraCatchUpVelocity * (targetPositionRelativeToScreen.x - (1 - horizontalBounds - .1f));
             xAdjust = transform.position.x + (cameraAdjustSpeed * Time.deltaTime * speedIncrease);
         }
 
+        // Figure out how much, if at all, the Y position of the camera needs to change.
         if (targetPositionRelativeToScreen.y < verticalBounds)
         {
-            var speedIncrease = catchUpSpeed * (verticalBounds + .1f - targetPositionRelativeToScreen.y);
+            var speedIncrease = cameraCatchUpVelocity * (verticalBounds + .1f - targetPositionRelativeToScreen.y);
             yAdjust = transform.position.y - (cameraAdjustSpeed * Time.deltaTime * speedIncrease);
         }
         else if (targetPositionRelativeToScreen.y > 1 - verticalBounds)
         {
-            var speedIncrease = catchUpSpeed * (targetPositionRelativeToScreen.y - (1 - verticalBounds));
+            var speedIncrease = cameraCatchUpVelocity * (targetPositionRelativeToScreen.y - (1 - verticalBounds - .1f));
             yAdjust = transform.position.y + (cameraAdjustSpeed * Time.deltaTime * speedIncrease);
         }
 
-        var proposed = new Vector3(
+        // Adjust the camera's position.
+        transform.position = new Vector3(
             xAdjust ?? transform.position.x,
             yAdjust ?? transform.position.y,
-            transform.position.z);
-        
-        var newViewportPoint = camera.WorldToViewportPoint(target.transform.position);
-
-        transform.position = proposed;
-
-    }
-
-    float GetIdealPositionForX(bool moveRight)
-    {
-        if (moveRight)
-            return camera.ViewportToWorldPoint(new Vector3(1 - horizontalBounds, 0f, 0f)).x;
-        else
-            return camera.ViewportToWorldPoint(new Vector3(horizontalBounds, 0f, 0f)).x;
+            transform.position.z); ;
     }
 
     void FollowPlayer()

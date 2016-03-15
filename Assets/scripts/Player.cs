@@ -1,73 +1,41 @@
 ﻿using UnityEngine;
+using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
+
 
 public class Player : MonoBehaviour {
 
     /*
         Problems:
-            Gravity keeps affecting target, should reset vertex of fall at end of jump
+            Gravity keeps affecting target, should reset velocity at apex of jump
             Player stops falling if he's moving left/right.  Actually, he falls slightly, unless he's pressed against a wall.
+            Need logic to handle bumps in terrain.
     */
 
     private BoxCollider2D boxCollider;
     private Rigidbody2D rb2D;
 
-    public float speed = 1f;
-    public float jumpSpeed = 1f;
-    public float jumpLengthSec = 2f;
-    public LayerMask blockingLayer;
+    public float speed = 35f;
+    public float jumpForce = 3500f;
+
+    public Text debugText;
+    public Text debugText2;
 
     private float xDir;
     private float yDir;
 
-    private bool isJumping = false;
-    private IEnumerator<float> jumpProcedure;
+    private bool onGround = false;
+    float groundRadius = 2.0f;
+    public LayerMask whatIsGround;
+
+    public Transform groundCheck;
 
     // Use this for initialization
     void Start() {
 
         boxCollider = GetComponent<BoxCollider2D>();
         rb2D = GetComponent<Rigidbody2D>();
-    }
-
-
-    //protected bool Move(int xDir, int yDir, out RaycastHit2D hit)
-    //{
-    //    Vector2 start = transform.position;
-    //    Vector2 end = start + new Vector2(xDir, yDir);
-
-    //    boxCollider.enabled = false;
-    //    hit = Physics2D.Linecast(start, end, blockingLayer);
-    //    boxCollider.enabled = true;
-
-    //    if (hit.transform == null)
-    //    {
-    //        StartCoroutine(SmoothMovement(end));
-    //        return true;
-    //    }
-
-    //    return false;
-    //}
-
-    protected IEnumerator<float> JumpTime(float jumpTime)
-    {
-        var originalJumpTime = jumpTime;
-
-        var gravity = 5 * rb2D.gravityScale;
-
-        while (jumpTime >= 0.0f)
-        {
-            var gravitySpeedKill = Mathf.Abs(jumpTime - originalJumpTime);
-
-            yield return jumpSpeed * (1 - gravitySpeedKill);
-
-            jumpTime -= Time.deltaTime;
-        }
-        isJumping = false;
-        jumpProcedure = null;
-
-        
     }
 
     /// <summary>
@@ -84,48 +52,35 @@ public class Player : MonoBehaviour {
     /// </summary>
     void ReceiveInput()
     {
-        var jump = Input.GetAxisRaw("Jump");
-        if (jump != 0.0f && !isJumping)
-        {
-            isJumping = true;
-            jumpProcedure = JumpTime(jumpLengthSec);
-        }
-
-        xDir += Input.GetAxisRaw("Horizontal");
-        if (isJumping)
-        {
-            yDir += 1.0f;
-        }
+        xDir = Input.GetAxisRaw("Horizontal");
+        yDir = Input.GetAxisRaw("Jump");
     }
 
-    void Update ()
+    bool isGrounded()
     {
+        return onGround;
+    }
+
+    void FixedUpdate ()
+    {
+        onGround = Physics2D.OverlapCircle(groundCheck.position, groundRadius, whatIsGround);
+        
+
+        var a = rb2D.velocity;
+        debugText.text = "Velocity: " + a;
+        debugText2.text = "On Ground: " + onGround + " Is Touching Stuff? " + rb2D.IsTouchingLayers(whatIsGround.value);
 
         ClearMovement();
         ReceiveInput();
 
+        var jumpVelocity = 0f;
 
-        if (xDir != 0.0f || yDir != 0.0f)
+        if (isGrounded() && yDir > 0f && rb2D.velocity.y == 0) 
         {
-            Vector2 start = rb2D.position;
-            Vector2 step = start + new Vector2(xDir, 0.0f);
-            
-
-            Vector3 positionAfterStep = Vector3.MoveTowards(rb2D.position, step, speed * Time.deltaTime);
-            Vector3 positionAfterJump = positionAfterStep;
-
-            // Continues a jump if we are jumping
-            if (jumpProcedure != null && jumpProcedure.MoveNext())
-            {
-                Vector2 elevate = start + new Vector2(0.0f, 1.0f);
-                var currJumpSpeed = jumpProcedure.Current;
-                
-                // The position of the object after jump.
-                positionAfterJump = Vector3.MoveTowards(positionAfterStep, elevate, currJumpSpeed * Time.deltaTime);
-            }
-
-            // the final move.
-            rb2D.MovePosition(positionAfterJump);
+            jumpVelocity = yDir * jumpForce;
         }
+
+        rb2D.velocity = new Vector2(xDir * speed, rb2D.velocity.y);
+        rb2D.AddForce(new Vector2(rb2D.velocity.x, jumpVelocity));
     }
 }

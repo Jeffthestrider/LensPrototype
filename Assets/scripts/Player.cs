@@ -2,7 +2,7 @@
 using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
-
+using System;
 
 public class Player : MonoBehaviour {
 
@@ -31,7 +31,9 @@ public class Player : MonoBehaviour {
     public LayerMask whatIsGround;
 
     // physics appliers
-    public float speed = 35f;
+    public float maxSpeed = 35f;
+    public float startSpeed = 15f;
+    public float secondsToMaxSpeed = 1.5f;
     public float jumpForce = 1000f;
     public float stepForce = 500f;
 
@@ -46,6 +48,8 @@ public class Player : MonoBehaviour {
 
     // States
     private AirState airState = AirState.FirstJump;
+    private float currentRunForce = 0f;
+    private float currentDirection = 1f;
 
     // Physical Properties
     float groundRadius = 2.0f;
@@ -138,7 +142,9 @@ public class Player : MonoBehaviour {
         debugText.text = "Velocity: " + rb2D.velocity;
         debugText2.text = "Air State: " + airState + " Is Touching Stuff? " + rb2D.IsTouchingLayers(whatIsGround.value);
 
-        rb2D.velocity = new Vector2(xDir * speed, rb2D.velocity.y);
+        determinePlayerRunForceAndDirection();
+
+        rb2D.velocity = new Vector2(currentDirection * currentRunForce, rb2D.velocity.y);
 
         var jumpVelocity = getJumpVelocity();
 
@@ -148,6 +154,46 @@ public class Player : MonoBehaviour {
 
     }
 
+    private void determinePlayerRunForceAndDirection()
+    {
+        bool hasTurned = false;
+
+        if (xDir != 0)
+        {
+            if (xDir != currentDirection)
+            {
+                hasTurned = true; 
+            }
+            currentDirection = xDir;
+        }
+
+        var speedDiff = maxSpeed - startSpeed;
+        var speedUpRatio = Time.deltaTime / secondsToMaxSpeed;
+        var speedDiffForTimeDiff = speedUpRatio * speedDiff;
+        
+        // player is just started running or has turned the character, set to initial speed.
+        if (xDir != 0 && (currentRunForce == 0 || hasTurned))
+        {
+            currentRunForce = startSpeed;
+        }
+        // player wants to run and we're not at max speed, speed us up.
+        else if (xDir != 0 && currentRunForce < maxSpeed)
+        {
+            var newSpeed = currentRunForce + speedDiffForTimeDiff;
+            var actualNewSpeed = newSpeed > maxSpeed ? maxSpeed : newSpeed;
+
+            currentRunForce = actualNewSpeed;
+        }
+        // player wants to stop but we're still running, slow us down.
+        else if (xDir == 0 && currentRunForce > 0f)
+        {
+            var newSpeed = currentRunForce - (speedDiffForTimeDiff * 5);
+            var actualNewSpeed = newSpeed <= 0f ? 0f : newSpeed;
+
+            currentRunForce = actualNewSpeed;
+        }
+    }
+    
     float getJumpVelocity()
     {
         airState = GetAirState();
@@ -162,6 +208,7 @@ public class Player : MonoBehaviour {
             var adjustedForce = jumpForce - 20 * rb2D.velocity.y;
             return adjustedForce;
         }
+        // If can hop up step, hop.
         else if (canStep() && xDir != 0)
         {
             return stepForce;
@@ -181,6 +228,7 @@ public class Player : MonoBehaviour {
         }
         else
         {
+            // Logic to handle jump/double jump
             switch (airState)
             {
                 case AirState.LeavingGround:
@@ -216,13 +264,8 @@ public class Player : MonoBehaviour {
 
     void UpdateSpriteState()
     {
-        if (xDir > 0f)
-        {
-            spriteRenderer.flipX = false;
-        } else if (xDir < 0f)
-        {
-            spriteRenderer.flipX = true;
-        }
+        SetSpriteXDirection();
+
         if (!isGrounded())
         {
             animator.SetInteger("state", 2);
@@ -235,5 +278,17 @@ public class Player : MonoBehaviour {
         }
 
         
+    }
+
+    void SetSpriteXDirection()
+    {
+        if (xDir > 0f)
+        {
+            spriteRenderer.flipX = false;
+        }
+        else if (xDir < 0f)
+        {
+            spriteRenderer.flipX = true;
+        }
     }
 }
